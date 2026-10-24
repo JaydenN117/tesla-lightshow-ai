@@ -1,0 +1,529 @@
+<meta charset="utf-8">
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one dark "parking lot at night" stage (front + rear of the car), transport bar,
+   then a lane timeline and two utility panels. Single dark theme on purpose: light shows are watched at night. */
+:root {
+  --asphalt: #0a0c0f;
+  --panel: #12161b;
+  --rule: #222a32;
+  --ink: #e2e7ec;
+  --muted: #8b97a3;
+  --amber: #ffae1a;
+  --warn: #ffcf5a;
+  --err: #ff6b5a;
+  --ok: #6fd3a0;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--asphalt); color: var(--ink); }
+body { font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1200px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 24px; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 5vw, 46px); line-height: 1; margin: 4px 0 0; letter-spacing: .01em; text-wrap: balance; }
+.sub { color: var(--muted); margin-top: 6px; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.stats b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.stage { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.view { position: relative; min-width: 0; }
+.view canvas { width: 100%; aspect-ratio: 1000 / 540; display: block; max-width: 100%; }
+.view .tag { position: absolute; left: 10px; top: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; }
+button, .filebtn { font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: .04em; color: var(--asphalt); background: var(--amber); border: 0; border-radius: 6px; padding: 7px 16px; cursor: pointer; }
+button.ghost, .filebtn { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.filebtn { position: relative; }
+.clock { font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; min-width: 12ch; }
+.section-now { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.audio-note { font-size: 13px; color: var(--muted); flex: 1 1 220px; min-width: 0; }
+#overview { width: 100%; height: 46px; display: block; cursor: pointer; touch-action: none; }
+.lanes { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 0 6px; overflow-x: auto; }
+.lanes h2, .panel h2 { font-family: var(--display); font-weight: 600; font-size: 19px; letter-spacing: .03em; margin: 0 12px 8px; }
+#lanes { display: block; width: 100%; min-width: 560px; cursor: pointer; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 0; min-width: 0; }
+.rows { display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: 9.5em 1fr 4.5em; gap: 10px; align-items: center; padding: 5px 12px; border-top: 1px solid var(--rule); font-size: 14px; }
+.meter { height: 8px; background: #1c232a; border-radius: 4px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--ink); border-radius: 4px; }
+.chip { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: right; }
+.chip.on { color: var(--amber); }
+.msgs { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow: auto; }
+.msgs li { display: grid; grid-template-columns: 3.6em 1fr; gap: 10px; padding: 6px 12px; border-top: 1px solid var(--rule); font-size: 14px; }
+.sev { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+.sev.error { color: var(--err); } .sev.warn { color: var(--warn); } .sev.ok { color: var(--ok); } .sev.info { color: var(--muted); }
+.notes { margin: 0; padding: 4px 12px 0 30px; color: var(--muted); font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+footer { color: var(--muted); font-size: 13px; }
+@media (max-width: 760px) {
+  .stage, .cols { grid-template-columns: 1fr; }
+  .row { grid-template-columns: 8.5em 1fr 4.2em; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow" id="car"></div>
+      <h1 id="title"></h1>
+      <div class="sub" id="song"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section class="stage" aria-label="Car preview">
+    <div class="view"><canvas id="front" width="1000" height="540" aria-label="Front of the car"></canvas><span class="tag">Front</span></div>
+    <div class="view"><canvas id="rear" width="1000" height="540" aria-label="Rear of the car"></canvas><span class="tag">Rear</span></div>
+  </section>
+
+  <div class="transport">
+    <button id="play" type="button">Play</button>
+    <button id="restart" class="ghost" type="button">Restart</button>
+    <span class="clock" id="clock">0:00.00</span>
+    <span class="section-now" id="secnow"></span>
+    <label class="filebtn" id="filebtn">Load song<input id="file" type="file" accept="audio/*"></label>
+    <span class="audio-note" id="audionote">No song loaded: the preview runs silently. Load the same MP3 or WAV to hear it in sync.</span>
+    <audio id="audio" preload="auto"></audio>
+  </div>
+
+  <canvas id="overview" aria-label="Song overview, click to jump"></canvas>
+
+  <section class="lanes" aria-label="Light timeline">
+    <h2>Lights, next 12 seconds</h2>
+    <canvas id="lanes"></canvas>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Closures</h2>
+      <div class="rows" id="closures"></div>
+    </section>
+    <section class="panel">
+      <h2>Validator</h2>
+      <ul class="msgs" id="msgs"></ul>
+      <h2 style="margin-top:12px">Car notes</h2>
+      <ul class="notes" id="notes"></ul>
+    </section>
+  </div>
+  <footer id="foot"></footer>
+</div>
+
+<script type="application/json" id="show-data">/*__DATA__*/</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('show-data').textContent);
+const b64 = s => { const bin = atob(s); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; };
+const L = {}, BARS = {};
+for (const o of D.outputs) { L[o.key] = b64(o.data); if (o.bar) BARS[o.key] = { nodes: o.nodes, a: b64(o.bar) }; }
+const BODY = D.body || 'sedan';
+const C = {}; for (const c of D.closures) C[c.key] = { ...c, pos: b64(c.pos), mode: b64(c.mode) };
+const RGB = D.rgb ? b64(D.rgb) : null;
+const N = D.n_frames, STEP = D.step_ms / 1000, DUR = N * STEP;
+const MODES = ['idle', 'open', 'close', 'dance', 'stop'];
+const $ = id => document.getElementById(id);
+
+$('title').textContent = D.title;
+$('song').textContent = D.song || '';
+$('car').textContent = D.profile;
+$('foot').textContent = `Simulated from ${D.fseq_name}: ${N} frames at ${D.step_ms} ms. Fade timings follow Tesla's example shows; real headlights look a little softer than this drawing.`;
+const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
+$('stats').innerHTML = [
+  ['length', fmt(DUR)], ['tempo', D.tempo ? D.tempo.toFixed(0) + ' bpm' : '–'],
+  ['light events', D.stats.events], ['per beat', D.stats.events_per_beat ?? '–'],
+  ['dark', Math.round(D.stats.dark_fraction * 100) + '%']
+].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
+for (const [lv, m] of D.messages) { const li = document.createElement('li'); li.innerHTML = `<span class="sev ${lv}">${lv}</span><span></span>`; li.lastChild.textContent = m; $('msgs').appendChild(li); }
+for (const n of D.notes) { const li = document.createElement('li'); li.textContent = n; $('notes').appendChild(li); }
+
+// ---------- playback clock ----------
+const audio = $('audio');
+let playing = false, t0 = 0, base = 0, hasAudio = false;
+function now() { if (hasAudio) return audio.currentTime; return playing ? base + (performance.now() - t0) / 1000 : base; }
+function seek(t) { t = Math.max(0, Math.min(DUR, t)); base = t; t0 = performance.now(); if (hasAudio) audio.currentTime = t; draw(); }
+function setPlay(p) {
+  playing = p; $('play').textContent = p ? 'Pause' : 'Play';
+  if (hasAudio) { p ? audio.play().catch(() => setPlay(false)) : audio.pause(); }
+  else { base = p ? base : now(); t0 = performance.now(); }
+  if (p) requestAnimationFrame(loop);
+}
+$('play').onclick = () => { if (!playing && now() >= DUR - 0.05) seek(0); setPlay(!playing); };
+$('restart').onclick = () => seek(0);
+function useAudio(src, label) {
+  audio.src = src; hasAudio = true; audio.currentTime = base;
+  $('audionote').textContent = label;
+}
+$('file').onchange = e => { const f = e.target.files[0]; if (!f) return; useAudio(URL.createObjectURL(f), `Playing ${f.name}.`); };
+audio.onended = () => setPlay(false);
+if (D.audio) { useAudio(D.audio, 'Song embedded in this preview.'); $('filebtn').hidden = true; }
+window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); $('play').click(); } });
+
+// ---------- car drawing ----------
+// front view: car's RIGHT side is on the viewer's left. Shapes below are drawn for the
+// viewer-left side and mirrored. Keys ending in L/R are resolved per side.
+const W = 1000;
+const mx = pts => pts.map(([x, y]) => [W - x, y]);
+const FRONT = {
+  DRL:   { poly: [[112,262],[196,244],[206,256],[124,274]] },
+  SIG:   { line: [[124,280],[206,260],[344,266]], w: 5 },
+  OUTER: { poly: [[134,282],[172,276],[174,296],[136,300]] },
+  INNER: { poly: [[186,282],[300,270],[338,272],[302,294],[190,298]] },
+  FTURN: { line: [[110,306],[220,310],[342,284]], w: 7 },
+  FOG:   { poly: [[126,418],[164,416],[164,432],[126,434]] },
+  REPEAT:{ poly: [[52,320],[70,316],[70,328],[52,332]] },
+};
+// Model S/X: channels 4, 5, 6 are three separate segments where the 3/Y DRL sits
+const CH456 = [{ poly: [[112,262],[138,256],[146,268],[124,274]] }, { poly: [[142,255],[168,250],[176,262],[150,267]] },
+               { poly: [[172,249],[196,244],[206,256],[180,261]] }];
+const PARK_SHAPES = [{ line: [[176,436],[300,426]], w: 6 }, { poly: [[300,434],[322,432],[322,442],[300,444]] }];
+const REAR = {
+  TAIL:  { poly: [[86,262],[200,240],[338,246],[346,270],[226,282],[104,294]] },
+  RTURN: { poly: [[94,266],[184,250],[190,278],[106,290]] },
+  BRAKEc:{ poly: [[226,250],[336,248],[344,268],[230,276]] },
+  REVc:  { poly: [[236,282],[300,277],[302,286],[238,291]] },
+};
+function path(ctx, s) {
+  const pts = s.poly || s.line; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]);
+  if (s.poly) ctx.closePath();
+}
+function lamp(ctx, s, color, v, mirror) {
+  const sh = mirror ? { ...s, poly: s.poly && mx(s.poly), line: s.line && mx(s.line) } : s;
+  ctx.save();
+  path(ctx, sh);
+  const off = '#1b2026';
+  if (sh.line) { ctx.lineWidth = sh.w || 5; ctx.lineCap = 'round'; ctx.strokeStyle = off; ctx.stroke(); }
+  else { ctx.fillStyle = off; ctx.fill(); }
+  if (v > 0.01) {
+    ctx.globalAlpha = Math.min(1, v * 1.1);
+    ctx.shadowColor = color; ctx.shadowBlur = 10 + 36 * v;
+    if (sh.line) { ctx.strokeStyle = color; ctx.stroke(); ctx.stroke(); }
+    else { ctx.fillStyle = color; ctx.fill(); ctx.fill(); }
+  }
+  ctx.restore();
+}
+function val(key, f) { const a = L[key]; return a ? a[f] / 255 : 0; }
+function bodyPath(ctx, rear) {
+  const top = BODY === 'suv' ? 44 : 70;
+  ctx.beginPath();
+  ctx.moveTo(330, top); ctx.lineTo(670, top);
+  ctx.quadraticCurveTo(760, 120, 790, 222);
+  ctx.quadraticCurveTo(910, 236, 948, 300);
+  ctx.quadraticCurveTo(964, 400, 930, 488);
+  ctx.lineTo(70, 488);
+  ctx.quadraticCurveTo(36, 400, 52, 300);
+  ctx.quadraticCurveTo(90, 236, 210, 222);
+  ctx.quadraticCurveTo(240, 120, 330, top);
+  ctx.closePath();
+}
+function wheels(ctx) {
+  ctx.fillStyle = '#050607';
+  ctx.beginPath(); ctx.ellipse(500, 500, 470, 16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0c0f12';
+  for (const x of [80, 840]) { ctx.beginPath(); ctx.roundRect(x, 430, 80, 74, 10); ctx.fill(); }
+}
+function setupCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(300, Math.round(r.width * dpr));
+  if (cv.width !== w) { cv.width = w; cv.height = Math.round(w * 540 / 1000); }
+  const ctx = cv.getContext('2d'); ctx.setTransform(cv.width / 1000, 0, 0, cv.width / 1000, 0, 0); return ctx;
+}
+function rgbAt(f) { return RGB ? [RGB[f*3], RGB[f*3+1], RGB[f*3+2]] : [0,0,0]; }
+function closure(key, f) { const c = C[key]; return c ? { pos: c.pos[f] / 255, mode: MODES[c.mode[f]] } : { pos: 0, mode: 'idle' }; }
+
+function drawFront(f) {
+  const ctx = setupCanvas($('front'));
+  ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, 1000, 540);
+  // beams on the ground
+  const beam = Math.max(val('L_INNER', f), val('R_INNER', f), val('L_OUTER', f), val('R_OUTER', f));
+  if (beam > 0.01) {
+    const g = ctx.createRadialGradient(500, 540, 20, 500, 540, 520);
+    g.addColorStop(0, `rgba(220,232,255,${0.28 * beam})`); g.addColorStop(1, 'rgba(220,232,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 380, 1000, 160);
+  }
+  wheels(ctx); bodyPath(ctx); ctx.fillStyle = '#161b21'; ctx.fill(); ctx.strokeStyle = '#2a333c'; ctx.lineWidth = 2; ctx.stroke();
+  // windshield with cabin glow
+  const [r, g, b] = rgbAt(f);
+  const wt = BODY === 'suv' ? 58 : 84;
+  ctx.beginPath(); ctx.moveTo(340, wt); ctx.lineTo(660, wt); ctx.lineTo(770, 216); ctx.lineTo(230, 216); ctx.closePath();
+  ctx.fillStyle = '#0d1116'; ctx.fill();
+  if (r + g + b > 0) { ctx.save(); ctx.clip(); const cg = ctx.createRadialGradient(500, 240, 10, 500, 240, 300);
+    cg.addColorStop(0, `rgba(${r},${g},${b},0.5)`); cg.addColorStop(1, `rgba(${r},${g},${b},0.04)`); ctx.fillStyle = cg; ctx.fillRect(0, 0, 1000, 540); ctx.restore(); }
+  // hood line + bumper intake
+  ctx.strokeStyle = '#232b33'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(210, 236); ctx.quadraticCurveTo(500, 268, 790, 236); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(330, 452); ctx.quadraticCurveTo(500, 470, 670, 452); ctx.stroke();
+  // mirrors
+  for (const [side, x, dir] of [['R', 212, -1], ['L', 788, 1]]) {
+    const m = closure(side + '_MIRROR', f);
+    const ext = 18 + 50 * m.pos;  // pos 1 = unfolded
+    ctx.beginPath(); ctx.ellipse(x + dir * ext / 2, 198, ext / 2 + 6, 13, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#1d242b'; ctx.fill(); ctx.strokeStyle = '#33404b'; ctx.stroke();
+  }
+  // headlight housings
+  for (const mir of [false, true]) {
+    const hp = [[100,268],[150,240],[300,250],[352,262],[330,294],[250,304],[118,306]];
+    path(ctx, { poly: mir ? mx(hp) : hp }); ctx.fillStyle = '#0e1216'; ctx.fill();
+  }
+  for (const [side, mir] of [['R', false], ['L', true]]) {
+    if (L[side + '_DRL']) lamp(ctx, FRONT.DRL, '#f4f8ff', val(side + '_DRL', f), mir);
+    else CH456.forEach((s, n) => lamp(ctx, s, '#f4f8ff', val(`${side}_CH${n + 4}`, f), mir));
+    lamp(ctx, FRONT.SIG, '#f4f8ff', val(side + '_SIG', f), mir);
+    lamp(ctx, FRONT.OUTER, '#eaf2ff', val(side + '_OUTER', f), mir);
+    lamp(ctx, FRONT.INNER, '#eaf2ff', val(side + '_INNER', f), mir);
+    lamp(ctx, FRONT.FTURN, '#ffae1a', val(side + '_FTURN', f), mir);
+    if (L[side + '_FOG']) lamp(ctx, FRONT.FOG, '#f4f8ff', val(side + '_FOG', f), mir);
+    lamp(ctx, FRONT.REPEAT, '#ffae1a', val(side + '_REPEAT', f), mir);
+    const park = L.PARK ? val('PARK', f) : val(side + '_PARK', f);
+    if (L.PARK || L[side + '_PARK']) for (const s of PARK_SHAPES) lamp(ctx, s, '#ffae1a', park, mir);
+  }
+}
+function drawRear(f) {
+  const ctx = setupCanvas($('rear'));
+  ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, 1000, 540);
+  const red = Math.max(val('BRAKE', f), val('L_TAIL', f), val('R_TAIL', f), val('TAILS', f));
+  if (red > 0.01) {
+    const g = ctx.createRadialGradient(500, 540, 20, 500, 540, 520);
+    g.addColorStop(0, `rgba(255,40,30,${0.22 * red})`); g.addColorStop(1, 'rgba(255,40,30,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 380, 1000, 160);
+  }
+  wheels(ctx); bodyPath(ctx); ctx.fillStyle = '#161b21'; ctx.fill(); ctx.strokeStyle = '#2a333c'; ctx.lineWidth = 2; ctx.stroke();
+  const [r, g, b] = rgbAt(f);
+  const rt = BODY === 'suv' ? 60 : 86;
+  ctx.beginPath(); ctx.moveTo(350, rt); ctx.lineTo(650, rt); ctx.lineTo(740, 214); ctx.lineTo(260, 214); ctx.closePath();
+  ctx.fillStyle = '#0d1116'; ctx.fill();
+  if (r + g + b > 0) { ctx.save(); ctx.clip(); const cg = ctx.createRadialGradient(500, 230, 10, 500, 230, 280);
+    cg.addColorStop(0, `rgba(${r},${g},${b},0.3)`); cg.addColorStop(1, `rgba(${r},${g},${b},0.02)`); ctx.fillStyle = cg; ctx.fillRect(0, 0, 1000, 540); ctx.restore(); }
+  // trunk lid lifts with the liftgate channel
+  const tr = closure('LIFTGATE', f), lift = 60 * tr.pos;
+  ctx.beginPath(); ctx.moveTo(250, 228 - lift); ctx.lineTo(750, 228 - lift); ctx.lineTo(720, 330 - lift * 0.4); ctx.lineTo(280, 330 - lift * 0.4); ctx.closePath();
+  ctx.fillStyle = tr.pos > 0.02 ? '#1d242c' : '#161b21'; ctx.fill(); ctx.strokeStyle = '#2a333c'; ctx.stroke();
+  // plate
+  ctx.strokeStyle = '#2f3943'; ctx.strokeRect(430, 400, 140, 56);
+  lamp(ctx, { poly: [[470,392],[530,392],[530,397],[470,397]] }, '#f4f8ff', L.LICENSE ? val('LICENSE', f) : val('TAILS', f), false);
+  if (L.REAR_FOG) lamp(ctx, { poly: [[478,470],[522,470],[522,478],[478,478]] }, '#ff2a1a', val('REAR_FOG', f), false);
+  lamp(ctx, { line: [[440,96],[560,96]], w: 6 }, '#ff2a1a', val('BRAKE', f), false);
+  for (const [side, mir] of [['L', false], ['R', true]]) {
+    const tail = L[side + '_TAIL'] ? val(side + '_TAIL', f) : val('TAILS', f);
+    lamp(ctx, REAR.TAIL, '#c8180c', Math.max(tail * 0.7, val('BRAKE', f)), mir);
+    lamp(ctx, REAR.BRAKEc, '#ff2a1a', val('BRAKE', f), mir);
+    lamp(ctx, REAR.RTURN, '#ffae1a', val(side + '_RTURN', f), mir);
+    lamp(ctx, REAR.REVc, '#f4f8ff', val('REVERSE', f), mir);
+  }
+  // charge port (car's left rear corner)
+  const cp = closure('CHARGE_PORT', f);
+  ctx.beginPath(); ctx.arc(66, 312, 11, 0, Math.PI * 2);
+  let cpc = '#1b2026';
+  if (cp.mode === 'dance') cpc = `hsl(${(f * 9) % 360} 95% 60%)`;
+  else if (cp.pos > 0.5) cpc = '#9fd7ff';
+  ctx.fillStyle = cpc; ctx.save(); if (cpc !== '#1b2026') { ctx.shadowColor = cpc; ctx.shadowBlur = 24; } ctx.fill(); ctx.restore();
+}
+
+// ---------- Cybertruck ----------
+function barNodes(key, f) {
+  const b = BARS[key]; if (!b) return null;
+  return b.a.subarray(f * b.nodes, (f + 1) * b.nodes);
+}
+function drawBar(ctx, key, f, x0, x1, y, color) {
+  const v = barNodes(key, f); if (!v) return;
+  const n = v.length, w = (x1 - x0) / n;
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i * w;
+    ctx.fillStyle = '#1b2026'; ctx.fillRect(x + 1, y, w - 2, 8);
+  }
+  ctx.save(); ctx.shadowColor = color; ctx.fillStyle = color;
+  for (let i = 0; i < n; i++) {
+    const a = v[i] / 255; if (a < 0.02) continue;
+    ctx.globalAlpha = Math.min(1, a * 1.1); ctx.shadowBlur = 6 + 22 * a;
+    ctx.fillRect(x0 + i * w + 1, y, w - 2, 8);
+  }
+  ctx.restore();
+}
+function ctBody(ctx, front) {
+  ctx.fillStyle = '#050607';
+  ctx.beginPath(); ctx.ellipse(500, 500, 480, 16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0c0f12';
+  for (const x of [70, 840]) { ctx.beginPath(); ctx.roundRect(x, 420, 90, 84, 8); ctx.fill(); }
+  ctx.beginPath();
+  ctx.moveTo(420, 64); ctx.lineTo(580, 64); ctx.lineTo(880, 228); ctx.lineTo(950, 250); ctx.lineTo(955, 430);
+  ctx.lineTo(45, 430); ctx.lineTo(50, 250); ctx.lineTo(120, 228); ctx.closePath();
+  ctx.fillStyle = '#1a1f25'; ctx.fill(); ctx.strokeStyle = '#38424c'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(430, 82); ctx.lineTo(570, 82); ctx.lineTo(front ? 770 : 720, 210); ctx.lineTo(front ? 230 : 280, 210); ctx.closePath();
+  ctx.fillStyle = '#0d1116'; ctx.fill();
+  return ctx;
+}
+function cabinGlow(ctx, f, alpha) {
+  const [r, g, b] = rgbAt(f); if (r + g + b === 0) return;
+  ctx.save(); ctx.clip(); const cg = ctx.createRadialGradient(500, 220, 10, 500, 220, 260);
+  cg.addColorStop(0, `rgba(${r},${g},${b},${alpha})`); cg.addColorStop(1, `rgba(${r},${g},${b},0.03)`);
+  ctx.fillStyle = cg; ctx.fillRect(0, 0, 1000, 540); ctx.restore();
+}
+function drawFrontCT(f) {
+  const ctx = setupCanvas($('front'));
+  ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, 1000, 540);
+  const beam = Math.max(val('L_INNER', f), val('R_INNER', f), val('L_OUTER', f), val('R_OUTER', f));
+  if (beam > 0.01) {
+    const g = ctx.createRadialGradient(500, 540, 20, 500, 540, 520);
+    g.addColorStop(0, `rgba(220,232,255,${0.28 * beam})`); g.addColorStop(1, 'rgba(220,232,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 380, 1000, 160);
+  }
+  ctBody(ctx, true); cabinGlow(ctx, f, 0.5);
+  const fr = closure('LIFTGATE', f), lift = 40 * fr.pos;  // powered frunk
+  ctx.beginPath(); ctx.moveTo(150, 232 - lift); ctx.lineTo(850, 232 - lift); ctx.lineTo(820, 238); ctx.lineTo(180, 238); ctx.closePath();
+  ctx.fillStyle = fr.pos > 0.02 ? '#252d36' : '#1a1f25'; ctx.fill();
+  lamp(ctx, { poly: [[480,300],[520,300],[520,306],[480,306]] }, '#f4f8ff', val('FRUNK_LIGHT', f) * (fr.pos > 0.1 ? 1 : 0.3), false);
+  drawBar(ctx, 'FBAR', f, 95, 905, 244, '#f4f8ff');
+  for (const [side, mir] of [['R', false], ['L', true]]) {
+    lamp(ctx, { poly: [[60,244],[92,244],[92,252],[60,252]] }, '#ffae1a', val(side + '_FTURN', f), mir);
+    lamp(ctx, { poly: [[130,270],[175,268],[175,282],[130,284]] }, '#eaf2ff', val(side + '_OUTER', f), mir);
+    lamp(ctx, { poly: [[185,268],[245,266],[245,280],[185,282]] }, '#eaf2ff', val(side + '_INNER', f), mir);
+    lamp(ctx, { poly: [[50,300],[66,298],[66,316],[50,318]] }, '#ffae1a', val(side + '_FMARK', f), mir);
+  }
+  if (BARS.OFFROAD) drawBar(ctx, 'OFFROAD', f, 330, 670, 70, '#f4f8ff');
+  for (const [side, x, dir] of [['R', 205, -1], ['L', 795, 1]]) {
+    const m = closure(side + '_MIRROR', f), ext = 18 + 50 * m.pos;
+    ctx.beginPath(); ctx.ellipse(x + dir * ext / 2, 200, ext / 2 + 6, 13, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#1d242b'; ctx.fill(); ctx.strokeStyle = '#33404b'; ctx.stroke();
+  }
+}
+function drawRearCT(f) {
+  const ctx = setupCanvas($('rear'));
+  ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, 1000, 540);
+  const red = Math.max(val('BRAKE', f), ...(barNodes('RBAR', f) || [0])) / 1;
+  if (red > 0.01) {
+    const g = ctx.createRadialGradient(500, 540, 20, 500, 540, 520);
+    g.addColorStop(0, `rgba(255,40,30,${0.22 * Math.min(1, red)})`); g.addColorStop(1, 'rgba(255,40,30,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 380, 1000, 160);
+  }
+  ctBody(ctx, false); cabinGlow(ctx, f, 0.3);
+  // bed lights glow over the tailgate
+  const bed = val('BED', f);
+  if (bed > 0.01) { ctx.save(); ctx.globalAlpha = 0.5 * bed; ctx.fillStyle = '#f4f8ff'; ctx.shadowColor = '#f4f8ff'; ctx.shadowBlur = 30;
+    ctx.fillRect(200, 214, 600, 10); ctx.restore(); }
+  drawBar(ctx, 'RBAR', f, 120, 880, 252, '#ff2a1a');
+  lamp(ctx, { line: [[440,96],[560,96]], w: 6 }, '#ff2a1a', val('BRAKE', f), false);
+  ctx.strokeStyle = '#2f3943'; ctx.strokeRect(430, 360, 140, 56);
+  lamp(ctx, { poly: [[470,352],[530,352],[530,357],[470,357]] }, '#f4f8ff', val('LICENSE', f), false);
+  for (const [side, mir] of [['L', false], ['R', true]]) {
+    lamp(ctx, { poly: [[60,250],[110,250],[110,262],[60,262]] }, '#ff2a1a', val(side + '_RTURN', f), mir);
+    lamp(ctx, { poly: [[150,300],[200,300],[200,312],[150,312]] }, '#f4f8ff', val(side + '_REV', f), mir);
+    lamp(ctx, { poly: [[50,300],[66,298],[66,316],[50,318]] }, '#ffae1a', val(side + '_RMARK', f), mir);
+  }
+  const cp = closure('CHARGE_PORT', f);
+  ctx.beginPath(); ctx.arc(70, 340, 11, 0, Math.PI * 2);
+  let cpc = '#1b2026';
+  if (cp.mode === 'dance') cpc = `hsl(${(f * 9) % 360} 95% 60%)`;
+  else if (cp.pos > 0.5) cpc = '#9fd7ff';
+  ctx.fillStyle = cpc; ctx.save(); if (cpc !== '#1b2026') { ctx.shadowColor = cpc; ctx.shadowBlur = 24; } ctx.fill(); ctx.restore();
+}
+
+// ---------- overview + lanes ----------
+const sectionHues = ['#2b3f55', '#4a3328', '#2f4a3a', '#46304d', '#4d4527', '#26484b'];
+const activity = new Float32Array(N);
+for (const o of D.outputs) { const a = L[o.key]; for (let i = 0; i < N; i++) activity[i] += a[i] / 255; }
+let actMax = 0; for (const v of activity) actMax = Math.max(actMax, v);
+function drawOverview(t) {
+  const cv = $('overview'), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(46 * dpr);
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = r.width, h = 46; ctx.clearRect(0, 0, w, h);
+  const labels = [...new Set(D.sections.map(s => s.label))].sort();
+  for (const s of D.sections) {
+    const x0 = s.start / DUR * w, x1 = s.end / DUR * w;
+    ctx.fillStyle = sectionHues[labels.indexOf(s.label) % sectionHues.length]; ctx.fillRect(x0, 0, x1 - x0 - 1, h);
+    ctx.fillStyle = '#c9d2da'; ctx.font = '600 12px "Barlow Condensed", sans-serif';
+    if (x1 - x0 > 26) ctx.fillText(`${s.label} · ${s.level}`, x0 + 5, 13);
+  }
+  ctx.beginPath();
+  const cols = Math.max(1, Math.floor(w));
+  for (let x = 0; x < cols; x++) {
+    const i0 = Math.floor(x / cols * N), i1 = Math.max(i0 + 1, Math.floor((x + 1) / cols * N));
+    let m = 0; for (let i = i0; i < i1; i++) m = Math.max(m, activity[i]);
+    const y = h - 2 - (m / (actMax || 1)) * (h - 20);
+    x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.strokeStyle = '#ffae1a'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(t / DUR * w - 1, 0, 2, h);
+}
+function overviewSeek(e) { const r = $('overview').getBoundingClientRect(); seek((e.clientX - r.left) / r.width * DUR); }
+$('overview').addEventListener('pointerdown', e => { overviewSeek(e); try { $('overview').setPointerCapture(e.pointerId); } catch (_) {} });
+$('overview').addEventListener('pointermove', e => { if (e.buttons) overviewSeek(e); });
+
+const WIN = 12, LANE = 13, LABEL_W = 170;
+function drawLanes(t) {
+  const cv = $('lanes'), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const h = 22 + D.outputs.length * LANE;
+  cv.style.height = h + 'px'; cv.width = Math.round(r.width * dpr); cv.height = Math.round(h * dpr);
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = r.width, plotW = w - LABEL_W - 12, start = Math.max(0, t - 2), sx = s => LABEL_W + (s - start) / WIN * plotW;
+  ctx.clearRect(0, 0, w, h);
+  for (const b of D.beats) if (b >= start && b <= start + WIN) {
+    const down = D.downbeats_set.has(b);
+    ctx.fillStyle = down ? '#33404c' : '#1d252d'; ctx.fillRect(sx(b), 16, 1, h - 16);
+  }
+  ctx.font = '500 11px "IBM Plex Mono", monospace'; ctx.fillStyle = '#8b97a3';
+  for (let s = Math.ceil(start); s <= start + WIN; s++) ctx.fillText(fmt(s).replace(/\.00$/, ''), sx(s) + 2, 11);
+  const f0 = Math.floor(start / STEP), f1 = Math.min(N, Math.ceil((start + WIN) / STEP));
+  D.outputs.forEach((o, k) => {
+    const y = 20 + k * LANE;
+    ctx.fillStyle = '#8b97a3'; ctx.font = '500 12px "Barlow", sans-serif';
+    ctx.fillText(o.label.length > 26 ? o.label.slice(0, 25) + '…' : o.label, 12, y + 10);
+    const a = L[o.key];
+    for (let i = f0; i < f1; i++) {
+      const v = a[i]; if (!v) continue;
+      ctx.globalAlpha = v / 255; ctx.fillStyle = o.color;
+      ctx.fillRect(sx(i * STEP), y + 1, Math.max(1, STEP / WIN * plotW + 0.5), LANE - 3);
+    }
+    ctx.globalAlpha = 1;
+  });
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(sx(t), 14, 2, h - 14);
+}
+$('lanes').addEventListener('click', e => {
+  const r = $('lanes').getBoundingClientRect(), t = now(), start = Math.max(0, t - 2);
+  const x = e.clientX - r.left; if (x < LABEL_W) return;
+  seek(start + (x - LABEL_W) / (r.width - LABEL_W - 12) * WIN);
+});
+D.downbeats_set = new Set(D.downbeats);
+
+// ---------- closures panel ----------
+const crow = {};
+for (const c of D.closures) {
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = `<span></span><span class="meter"><i></i></span><span class="chip"></span>`;
+  row.firstChild.textContent = c.label;
+  $('closures').appendChild(row); crow[c.key] = row;
+}
+function drawClosures(f) {
+  for (const c of D.closures) {
+    const st = closure(c.key, f), row = crow[c.key];
+    row.querySelector('i').style.width = Math.round(st.pos * 100) + '%';
+    const chip = row.querySelector('.chip');
+    const mirror = c.key.endsWith('MIRROR');
+    const rest = mirror ? (st.pos > 0.98 ? 'unfolded' : st.pos < 0.02 ? 'folded' : 'stopped')
+                        : (st.pos > 0.02 ? 'open ' + Math.round(st.pos * 100) + '%' : 'closed');
+    const label = st.mode === 'idle' ? rest : (mirror && st.mode === 'close' ? 'folding' : mirror && st.mode === 'open' ? 'unfolding' : st.mode);
+    if (chip.textContent !== label) chip.textContent = label;
+    chip.classList.toggle('on', st.mode !== 'idle');
+  }
+}
+
+function draw() {
+  const t = Math.min(now(), DUR - STEP), f = Math.max(0, Math.min(N - 1, Math.floor(t / STEP)));
+  if (BODY === 'cybertruck') { drawFrontCT(f); drawRearCT(f); } else { drawFront(f); drawRear(f); } drawOverview(t); drawLanes(t); drawClosures(f);
+  $('clock').textContent = `${fmt(t)} / ${fmt(DUR)}`;
+  const s = D.sections.find(s => t >= s.start && t < s.end);
+  $('secnow').textContent = s ? `section ${s.label} · ${s.level}` : '';
+}
+function loop() { draw(); if (playing) { if (!hasAudio && now() >= DUR) { setPlay(false); return; } requestAnimationFrame(loop); } }
+window.addEventListener('resize', draw);
+seek(D.start_at || 0);
+window.tlPreview = { seek, duration: DUR };  // used by the video renderer
+})();
+</script>

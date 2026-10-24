@@ -1,0 +1,20 @@
+{
+  "name": "tesla-lightshow",
+  "version": "0.1.0",
+  "description": "AI-built (written by Claude in Claude Code). Make custom Tesla light shows from your own songs: analyses the music, choreographs the lights, doors and closures for your car (Model 3, Y, S, X, Cybertruck), previews it, validates it against Tesla's rules and packages it for the USB stick.",
+  "author": {
+    "name": "JaydenN117",
+    "url": "https://github.com/JaydenN117"
+  },
+  "homepage": "https://github.com/JaydenN117/tesla-lightshow-ai",
+  "repository": "https://github.com/JaydenN117/tesla-lightshow-ai",
+  "license": "MIT",
+  "keywords": [
+    "tesla",
+    "light show",
+    "xlights",
+    "fseq",
+    "music",
+    "ai-generated"
+  ]
+}

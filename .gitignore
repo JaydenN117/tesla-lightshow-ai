@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Your shows, songs and car live here (or in any folder outside the repo). Never committed.
+workspace/
+car.json
+build/
+# Purchased music and rendered videos are never committed.
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.mp4
