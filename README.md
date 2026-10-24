@@ -5,7 +5,7 @@
 > [Claude Code](https://claude.ai/code). [@JaydenN117](https://github.com/JaydenN117) directed it
 > and ran the shows on his own car. See [How this was made](#how-this-was-made).
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/5bJA9yt8CL0?si=ghNlTIKB_16AsmJ1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![Watch demo on YouTube](https://img.youtube.com/vi/5bJA9yt8CL0/hqdefault.jpg)](https://youtu.be/5bJA9yt8CL0?si=apfHg2P53-Ltu5aP)
 
 Turn any song you own into a custom Tesla light show. Claude listens to the track (tempo,
 beats, verses and choruses, drops and silences), choreographs your car's lights, mirrors,
