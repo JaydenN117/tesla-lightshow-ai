@@ -1,6 +1,6 @@
 {
   "name": "tesla-lightshow",
-  "description": "Tesla custom light show maker for Claude Code",
+  "description": "AI-built Tesla light show maker for Claude Code (written by Claude)",
   "owner": {
     "name": "JaydenN117"
   },
@@ -8,7 +8,7 @@
     {
       "name": "tesla-lightshow",
       "source": "./",
-      "description": "Make custom Tesla light shows from your own songs, for Model 3, Y, S, X and Cybertruck."
+      "description": "AI-built (written by Claude): make custom Tesla light shows from your own songs, for Model 3, Y, S, X and Cybertruck."
     }
   ]
 }
